@@ -57,7 +57,8 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(source).toContain("modelOrbitControls.addEventListener('end'");
     expect(source).toContain('liveModelAnalysis: false');
     expect(source).toContain('const MODEL_ANALYSIS_INTERVAL = 180');
-    expect(source).toContain('const liveModelAnalysisDue = params.liveModelAnalysis');
+    expect(source).toContain('const liveModelAdjustmentPending = params.liveModelAnalysis');
+    expect(source).toContain('const liveModelAnalysisDue = liveModelAdjustmentPending');
     expect(source).toContain('&& time - lastAnalysisAt > MODEL_ANALYSIS_INTERVAL');
     expect(source).toContain('modelOrbiting = true');
     expect(source).toContain('modelOrbiting = false');
@@ -116,6 +117,17 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(styles).toContain('.model-color-custom.is-active');
     expect(styles).toContain('.model-light-control {');
     expect(styles).toContain('position: absolute');
+  });
+
+  it('updates model strokes live while the light angle is being adjusted', () => {
+    expect(source).toContain('let modelLightAdjusting = false');
+    expect(source).toContain('(modelOrbiting || modelLightAdjusting)');
+    expect(source).toContain('const liveModelAnalysisDue = liveModelAdjustmentPending');
+    expect(source).toContain("modelLightAngleEl.addEventListener('input', () => {");
+    expect(source).toContain('modelLightAdjusting = true');
+    expect(source).toContain("modelLightAngleEl.addEventListener('change', () => {");
+    expect(source).toContain('modelLightAdjusting = false');
+    expect(source).toContain('环境光调整中 · 笔触实时跟随');
   });
 
   it('uses uploaded images directly without exposing an interpretation mode', () => {
@@ -425,7 +437,7 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(source).toContain('function requestFrame()');
     expect(source).toContain('animationFrameId = requestAnimationFrame(animate)');
     expect(source).toContain('animationFrameId = 0');
-    expect(source).toContain('if (growthActive || liveModelAnalysisPending || (params.cameraDrift && !params.paused)) requestFrame()');
+    expect(source).toContain('if (growthActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame()');
     expect(source.indexOf('if (!strokeTargetsDirty && (!growthActive || params.paused)) return false'))
       .toBeLessThan(source.indexOf("growthProgressEl.textContent = growthRatio >= 1"));
     expect(source).not.toContain('let fieldTexture');

@@ -482,6 +482,7 @@ let activeModelColor = '';
 let activeModelColorIsCustom = false;
 let modelViewDirty = false;
 let modelOrbiting = false;
+let modelLightAdjusting = false;
 let modelCameraDistance = 8;
 
 const DEFAULT_GEOMETRIES = Object.freeze({
@@ -2010,8 +2011,8 @@ function updateAnalysis(reseed = false) {
   fieldDirty = false;
   modelViewDirty = false;
   lastAnalysisAt = performance.now();
-  statusEl.textContent = importedModelRoot && modelOrbiting && params.liveModelAnalysis
-    ? '拖动中 · 笔触实时跟随'
+  statusEl.textContent = importedModelRoot && params.liveModelAnalysis && (modelOrbiting || modelLightAdjusting)
+    ? modelLightAdjusting ? '环境光调整中 · 笔触实时跟随' : '拖动中 · 笔触实时跟随'
     : uploadedImage
       ? '原图已转换 · 方向场与颜色已同步'
       : '实时运行 · 方向场已同步';
@@ -2271,10 +2272,11 @@ function animate(time) {
     sceneRendered = true;
   }
 
-  const liveModelAnalysisDue = params.liveModelAnalysis
+  const liveModelAdjustmentPending = params.liveModelAnalysis
     && importedModelRoot
-    && modelOrbiting
-    && modelViewDirty
+    && (modelOrbiting || modelLightAdjusting)
+    && modelViewDirty;
+  const liveModelAnalysisDue = liveModelAdjustmentPending
     && time - lastAnalysisAt > MODEL_ANALYSIS_INTERVAL;
   const analysisDue = fieldDirty
     || liveModelAnalysisDue
@@ -2288,11 +2290,7 @@ function animate(time) {
   const growthActive = params.growthPlayback
     && !params.paused
     && currentGrowthTime() < GROWTH_DURATION;
-  const liveModelAnalysisPending = params.liveModelAnalysis
-    && importedModelRoot
-    && modelOrbiting
-    && modelViewDirty;
-  if (growthActive || liveModelAnalysisPending || (params.cameraDrift && !params.paused)) requestFrame();
+  if (growthActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame();
   else lastFrameAt = 0;
 }
 
@@ -2333,6 +2331,7 @@ function clearImportedModel() {
   activeModelColor = '';
   activeModelColorIsCustom = false;
   modelViewDirty = false;
+  modelLightAdjusting = false;
   modelOrbitControls.enabled = false;
   mount.classList.remove('is-model-source', 'is-orbiting');
   setProceduralSceneVisible(true);
@@ -3221,8 +3220,14 @@ modelColorCustomEl.addEventListener('input', () => applyModelColor(
   modelColorCustomEl.value.toUpperCase(),
   { custom: true },
 ));
-modelLightAngleEl.addEventListener('input', () => setModelLightAngle(modelLightAngleEl.value));
-modelLightAngleEl.addEventListener('change', () => setModelLightAngle(modelLightAngleEl.value, { finalize: true }));
+modelLightAngleEl.addEventListener('input', () => {
+  modelLightAdjusting = true;
+  setModelLightAngle(modelLightAngleEl.value);
+});
+modelLightAngleEl.addEventListener('change', () => {
+  modelLightAdjusting = false;
+  setModelLightAngle(modelLightAngleEl.value, { finalize: true });
+});
 restoreSceneButton.addEventListener('click', restoreBuiltInScene);
 exportButtonEl.addEventListener('click', exportHighResolution);
 videoExportButtonEl.addEventListener('click', exportGrowthVideo);
