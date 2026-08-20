@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const mount = document.getElementById('canvas-mount');
+const appEl = document.getElementById('app');
+const panelEl = document.getElementById('control-panel');
+const panelResizerEl = document.getElementById('panel-resizer');
 const statusEl = document.getElementById('runtime-status');
 const strokeCountEl = document.getElementById('stroke-count');
 const gbufferSizeEl = document.getElementById('gbuffer-size');
@@ -118,6 +121,7 @@ const I18N = Object.freeze({
     canvasHint: '滚轮缩放画布 · 双击恢复 · 拖动时间轴定位',
     modelCanvasHint: '拖动旋转模型 · 滚轮调整距离 · 双击复位视角',
     lightAngle: '环境光角度',
+    resizePanel: '拖动调整参数面板宽度',
   }),
   en: Object.freeze({
     pageTitle: 'Wet Paint Flow · Real-time Brush Generator',
@@ -191,6 +195,7 @@ const I18N = Object.freeze({
     canvasHint: 'Wheel to zoom · Double-click to reset · Drag the timeline to seek',
     modelCanvasHint: 'Drag to rotate · Wheel to zoom · Double-click to reset',
     lightAngle: 'Light Angle',
+    resizePanel: 'Drag to resize the control panel',
   }),
 });
 
@@ -221,6 +226,110 @@ function applyLanguage() {
   languageToggleEl.setAttribute('aria-label', t('switchLanguage'));
   languageToggleEl.title = t('switchLanguage');
 }
+
+const PANEL_MIN_WIDTH = 360;
+const PANEL_KEYBOARD_STEP = 32;
+let panelResizing = false;
+let panelResizePointerId = null;
+let panelResizeFrameId = 0;
+let pendingPanelWidth = null;
+
+function panelResizeEnabled() {
+  return window.matchMedia('(min-width: 851px)').matches;
+}
+
+function panelViewportMaximum() {
+  return Math.max(PANEL_MIN_WIDTH, appEl.clientWidth - panelResizerEl.offsetWidth);
+}
+
+function updatePanelResizeAria(width = panelEl.getBoundingClientRect().width) {
+  panelResizerEl.setAttribute('aria-valuemin', String(PANEL_MIN_WIDTH));
+  panelResizerEl.setAttribute('aria-valuemax', String(Math.round(panelViewportMaximum())));
+  panelResizerEl.setAttribute('aria-valuenow', String(Math.round(width)));
+}
+
+function applyPanelWidth(width) {
+  const nextWidth = Math.min(
+    panelViewportMaximum(),
+    Math.max(PANEL_MIN_WIDTH, Number(width) || PANEL_MIN_WIDTH),
+  );
+  appEl.style.setProperty('--panel-width', `${Math.round(nextWidth)}px`);
+  updatePanelResizeAria(nextWidth);
+  document.documentElement.dataset.panelWidth = String(Math.round(nextWidth));
+  return nextWidth;
+}
+
+function flushPanelResize() {
+  panelResizeFrameId = 0;
+  if (pendingPanelWidth === null) return;
+  applyPanelWidth(pendingPanelWidth);
+  pendingPanelWidth = null;
+  fitCanvasFrameToSource();
+}
+
+function schedulePanelResize(width) {
+  pendingPanelWidth = width;
+  if (panelResizeFrameId) return;
+  panelResizeFrameId = requestAnimationFrame(flushPanelResize);
+}
+
+function widthFromPanelPointer(event) {
+  return appEl.getBoundingClientRect().right - event.clientX;
+}
+
+function finishPanelResize(event) {
+  if (!panelResizing || event.pointerId !== panelResizePointerId) return;
+  if (panelResizeFrameId) {
+    cancelAnimationFrame(panelResizeFrameId);
+    panelResizeFrameId = 0;
+  }
+  pendingPanelWidth = event.type === 'pointerup'
+    ? widthFromPanelPointer(event)
+    : pendingPanelWidth ?? panelEl.getBoundingClientRect().width;
+  flushPanelResize();
+  panelResizing = false;
+  panelResizePointerId = null;
+  delete document.documentElement.dataset.panelResizing;
+  if (panelResizerEl.hasPointerCapture(event.pointerId)) {
+    panelResizerEl.releasePointerCapture(event.pointerId);
+  }
+  resizeDirty = true;
+  requestFrame();
+}
+
+panelResizerEl.addEventListener('pointerdown', (event) => {
+  if (!panelResizeEnabled() || event.button !== 0) return;
+  event.preventDefault();
+  panelResizing = true;
+  panelResizePointerId = event.pointerId;
+  document.documentElement.dataset.panelResizing = 'true';
+  panelResizerEl.setPointerCapture(event.pointerId);
+  panelResizerEl.focus();
+  schedulePanelResize(widthFromPanelPointer(event));
+});
+
+panelResizerEl.addEventListener('pointermove', (event) => {
+  if (!panelResizing || event.pointerId !== panelResizePointerId) return;
+  schedulePanelResize(widthFromPanelPointer(event));
+});
+
+panelResizerEl.addEventListener('pointerup', finishPanelResize);
+panelResizerEl.addEventListener('pointercancel', finishPanelResize);
+panelResizerEl.addEventListener('lostpointercapture', finishPanelResize);
+
+panelResizerEl.addEventListener('keydown', (event) => {
+  if (!panelResizeEnabled()) return;
+  const currentWidth = panelEl.getBoundingClientRect().width;
+  let nextWidth = null;
+  if (event.key === 'ArrowLeft') nextWidth = currentWidth + PANEL_KEYBOARD_STEP;
+  if (event.key === 'ArrowRight') nextWidth = currentWidth - PANEL_KEYBOARD_STEP;
+  if (event.key === 'Home') nextWidth = PANEL_MIN_WIDTH;
+  if (nextWidth === null) return;
+  event.preventDefault();
+  applyPanelWidth(nextWidth);
+  resizeDirty = true;
+  requestFrame();
+});
 
 const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 let skipInitialGrowth = prefersReducedMotion;
@@ -3277,11 +3386,15 @@ window.addEventListener('keyup', (event) => {
 });
 
 window.addEventListener('resize', () => {
+  const configuredWidth = parseFloat(appEl.style.getPropertyValue('--panel-width'));
+  if (panelResizeEnabled() && Number.isFinite(configuredWidth)) applyPanelWidth(configuredWidth);
+  else updatePanelResizeAria();
   resizeDirty = true;
   requestFrame();
 });
 if ('ResizeObserver' in window) {
   const mountResizeObserver = new ResizeObserver(() => {
+    if (panelResizing) return;
     resizeDirty = true;
     requestFrame();
   });
@@ -3305,6 +3418,7 @@ languageToggleEl.addEventListener('click', () => {
 });
 
 applyLanguage();
+updatePanelResizeAria();
 setSourceUi();
 setLayerMode(5);
 updateGrowthControls(prefersReducedMotion ? GROWTH_DURATION : 0);

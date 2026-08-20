@@ -252,6 +252,22 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(styles).toContain('.growth-section-head');
   });
 
+  it('lets desktop users resize the control panel without rebuilding every drag frame', () => {
+    expect(html).toContain('id="panel-resizer"');
+    expect(html).toContain('role="separator"');
+    expect(html).toContain('aria-controls="control-panel"');
+    expect(html).toContain('aria-valuemin="360"');
+    expect(styles).toContain('grid-template-columns: minmax(0, 1fr) 10px var(--panel-width)');
+    expect(styles).toContain('.panel-resizer {');
+    expect(styles).toContain('.panel-resizer { display: none; }');
+    expect(source).toContain('const PANEL_MIN_WIDTH = 360');
+    expect(source).toContain("panelResizerEl.addEventListener('pointerdown'");
+    expect(source).toContain('panelResizerEl.setPointerCapture(event.pointerId)');
+    expect(source).toContain("if (event.key === 'Home') nextWidth = PANEL_MIN_WIDTH");
+    expect(source).toContain('if (panelResizing) return');
+    expect(source).toContain('resizeDirty = true');
+  });
+
   it('offers scalable realtime quality and proportional high-resolution export', () => {
     expect(source).toContain("high: Object.freeze({ renderScale: 1");
     expect(source).toContain("ultra: Object.freeze({ renderScale: 1.25");
@@ -335,7 +351,7 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(html).not.toContain('class="folio-rail"');
     expect(html).not.toContain('<small>笔触生成器</small>');
     expect(styles).not.toContain('.folio-rail');
-    expect(styles).toContain('grid-template-columns: minmax(0, 66fr) minmax(360px, 34fr)');
+    expect(styles).toContain('grid-template-columns: minmax(0, 1fr) 10px var(--panel-width)');
   });
 
   it('exposes independent coarse, medium, and fine brush-layer switches', () => {

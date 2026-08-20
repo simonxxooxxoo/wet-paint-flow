@@ -7,9 +7,13 @@
 
 ![Wet Paint Flow social preview](./public/og.png)
 
+## 项目介绍
+
 Wet Paint Flow 是一个浏览器内运行的 Three.js 实时流场绘画实验。它从图片或
 3D 场景提取结构方向，用稳定的粗、中、细三层 Bézier ribbon 笔触重建画面，
 再以高度、湿度、刷毛沟槽和微表面光照合成湿油彩质感。
+
+## Project Introduction
 
 Wet Paint Flow is a browser-based Three.js flow-field painter. It derives a
 structural direction field from an image or 3D scene, reconstructs the view
@@ -80,6 +84,10 @@ are fetched from the site, and the language preference uses `localStorage`.
 Model orbiting uses a lightweight 3D preview and performs one direction-field
 analysis and stroke rebuild on release instead of repeatedly reading the GPU
 while dragging.
+
+桌面端可拖动画布与参数面板之间的分隔线，自由调整面板宽度；面板最小宽度为
+360 px。On desktop, drag the divider between the canvas and control panel to
+resize the panel freely; its minimum width is 360 px.
 
 ## 架构与性能策略 / Architecture and performance
 
