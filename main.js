@@ -42,6 +42,8 @@ const restoreSceneButton = document.getElementById('restore-scene-button');
 const sceneLibraryEl = document.getElementById('scene-library');
 const sceneGridEl = document.getElementById('scene-grid');
 const scenePickerLabelEl = document.getElementById('scene-picker-label');
+const sceneTourToggleEl = document.getElementById('scene-tour-toggle');
+sceneTourToggleEl.disabled = true;
 const layerModeEls = Array.from(document.querySelectorAll('input[name="layer-mode"]'));
 const brushLayerEls = Array.from(document.querySelectorAll('input[data-brush-layer]'));
 const growthTimelineEl = document.getElementById('growth-timeline');
@@ -77,6 +79,9 @@ const I18N = Object.freeze({
     strokeResult: '笔触结果',
     builtInWorks: '内置原作',
     elevenWorks: '11 幅',
+    strokeMorph: '作品间笔触变形',
+    startTour: '自动巡展',
+    stopTour: '停止巡展',
     loadingScenes: '正在读取场景…',
     loadingWork: '正在载入',
     selectWork: '选择一幅原作',
@@ -151,6 +156,9 @@ const I18N = Object.freeze({
     strokeResult: 'Brush Result',
     builtInWorks: 'Built-in Works',
     elevenWorks: '11 works',
+    strokeMorph: 'Stroke-to-stroke transitions',
+    startTour: 'Auto Tour',
+    stopTour: 'Stop Tour',
     loadingScenes: 'Loading scenes…',
     loadingWork: 'Loading',
     selectWork: 'Select a work',
@@ -473,6 +481,8 @@ let selectedBuiltInScene = null;
 let activeBuiltInSceneId = '';
 let sceneLoadToken = 0;
 const builtInSceneBlobCache = new Map();
+let sceneTourEnabled = false;
+let sceneTourTimer = 0;
 let importedModelRoot = null;
 let importedModelMeshes = [];
 let importedModelLabel = '';
@@ -804,6 +814,8 @@ const strokeVertexShader = `
   attribute vec3 aColor;
   attribute float aWidth;
   attribute float aSeed;
+  attribute vec4 aPrevP01;
+  attribute vec4 aPrevP23;
   attribute float aBirth;
   attribute float aDuration;
   attribute float aBrushLayer;
@@ -812,6 +824,7 @@ const strokeVertexShader = `
   uniform float uBrushSize;
   uniform float uGrowthTime;
   uniform float uGrowthEnabled;
+  uniform float uSceneMorph;
   uniform vec3 uBrushLayerVisibility;
   varying vec3 vColor;
   varying float vSide;
@@ -824,7 +837,11 @@ const strokeVertexShader = `
 
   vec2 bezier(float t) {
     float s = 1.0 - t;
-    return s*s*s*aP0 + 3.0*s*s*t*aP1 + 3.0*s*t*t*aP2 + t*t*t*aP3;
+    vec2 p0 = mix(aPrevP01.xy, aP0, uSceneMorph);
+    vec2 p1 = mix(aPrevP01.zw, aP1, uSceneMorph);
+    vec2 p2 = mix(aPrevP23.xy, aP2, uSceneMorph);
+    vec2 p3 = mix(aPrevP23.zw, aP3, uSceneMorph);
+    return s*s*s*p0 + 3.0*s*s*t*p1 + 3.0*s*t*t*p2 + t*t*t*p3;
   }
 
   void main() {
@@ -953,6 +970,7 @@ const strokeMaterial = new THREE.ShaderMaterial({
     uBristleDetail: { value: params.bristleDetail },
     uGrowthTime: { value: 0 },
     uGrowthEnabled: { value: 1 },
+    uSceneMorph: { value: 1 },
     uBrushLayerVisibility: { value: new THREE.Vector3(1, 1, 1) },
   },
 });
@@ -1003,6 +1021,7 @@ const pencilStrokeMaterial = new THREE.ShaderMaterial({
     uCoverage: { value: params.coverage },
     uGrowthTime: { value: 0 },
     uGrowthEnabled: { value: 1 },
+    uSceneMorph: { value: 1 },
     uBrushLayerVisibility: { value: new THREE.Vector3(1, 1, 1) },
   },
 });
@@ -1025,6 +1044,7 @@ const heightMaterial = new THREE.ShaderMaterial({
     uBristleDetail: { value: params.bristleDetail },
     uGrowthTime: { value: 0 },
     uGrowthEnabled: { value: 1 },
+    uSceneMorph: { value: 1 },
     uBrushLayerVisibility: { value: new THREE.Vector3(1, 1, 1) },
   },
 });
@@ -1270,7 +1290,11 @@ let growthWasActive = false;
 let videoRecording = false;
 let lastAnalysisDuration = 0;
 let lastReseedDuration = 0;
+let strokeMorphActive = false;
+let strokeMorphStartedAt = 0;
 const GROWTH_DURATION = 5;
+const STROKE_MORPH_DURATION = 1800;
+const SCENE_TOUR_DWELL = 6200;
 const VIDEO_RECORDING_FPS = 30;
 const VIDEO_RECORDING_MIN_FPS = 24;
 const VIDEO_RECORDING_TIMEOUT = 8000;
@@ -1913,6 +1937,8 @@ function ensureStrokeGeometry(count) {
   strokeGeometry.setAttribute('aColor', dynamic(count * 3, 3));
   strokeGeometry.setAttribute('aWidth', dynamic(count, 1));
   strokeGeometry.setAttribute('aSeed', dynamic(count, 1));
+  strokeGeometry.setAttribute('aPrevP01', dynamic(count * 4, 4));
+  strokeGeometry.setAttribute('aPrevP23', dynamic(count * 4, 4));
   strokeGeometry.setAttribute('aBirth', dynamic(count, 1));
   strokeGeometry.setAttribute('aDuration', dynamic(count, 1));
   strokeGeometry.setAttribute('aBrushLayer', dynamic(count, 1));
@@ -1920,6 +1946,95 @@ function ensureStrokeGeometry(count) {
   strokeMesh = new THREE.Mesh(strokeGeometry, strokeMaterial);
   strokeMesh.frustumCulled = false;
   overlayScene.add(strokeMesh);
+}
+
+const STROKE_MORPH_POINT_ATTRIBUTES = Object.freeze(['aP0', 'aP1', 'aP2', 'aP3']);
+
+function setStrokeMorphProgress(value) {
+  const progress = THREE.MathUtils.clamp(value, 0, 1);
+  [strokeMaterial, pencilStrokeMaterial, heightMaterial].forEach((material) => {
+    material.uniforms.uSceneMorph.value = progress;
+  });
+  document.documentElement.dataset.strokeMorphProgress = progress.toFixed(3);
+}
+
+function captureStrokeMorphSnapshot() {
+  if (!strokeGeometry || strokeGeometry.instanceCount < 1) return null;
+  const progress = strokeMaterial.uniforms.uSceneMorph.value;
+  const previousP01 = strokeGeometry.getAttribute('aPrevP01').array;
+  const previousP23 = strokeGeometry.getAttribute('aPrevP23').array;
+  const attributes = {};
+  STROKE_MORPH_POINT_ATTRIBUTES.forEach((currentName, pointIndex) => {
+    const current = strokeGeometry.getAttribute(currentName).array;
+    const snapshot = new Float32Array(current.length);
+    if (strokeMorphActive && progress < 0.999) {
+      const previous = pointIndex < 2 ? previousP01 : previousP23;
+      const packedOffset = pointIndex % 2 === 0 ? 0 : 2;
+      for (let index = 0; index < strokeGeometry.instanceCount; index += 1) {
+        const currentOffset = index * 2;
+        const previousOffset = index * 4 + packedOffset;
+        snapshot[currentOffset] = THREE.MathUtils.lerp(previous[previousOffset], current[currentOffset], progress);
+        snapshot[currentOffset + 1] = THREE.MathUtils.lerp(previous[previousOffset + 1], current[currentOffset + 1], progress);
+      }
+    } else {
+      snapshot.set(current);
+    }
+    attributes[currentName] = snapshot;
+  });
+  return { count: strokeGeometry.instanceCount, attributes };
+}
+
+function beginStrokeMorph(snapshot) {
+  if (!snapshot || !strokeGeometry || !snapshot.count) return false;
+  const count = strokeGeometry.instanceCount;
+  const previousP01 = strokeGeometry.getAttribute('aPrevP01');
+  const previousP23 = strokeGeometry.getAttribute('aPrevP23');
+  const p01 = previousP01.array;
+  const p23 = previousP23.array;
+  for (let index = 0; index < count; index += 1) {
+    const sourceIndex = Math.min(snapshot.count - 1, Math.floor(index * snapshot.count / count));
+    const sourceOffset = sourceIndex * 2;
+    const targetOffset = index * 4;
+    p01[targetOffset] = snapshot.attributes.aP0[sourceOffset];
+    p01[targetOffset + 1] = snapshot.attributes.aP0[sourceOffset + 1];
+    p01[targetOffset + 2] = snapshot.attributes.aP1[sourceOffset];
+    p01[targetOffset + 3] = snapshot.attributes.aP1[sourceOffset + 1];
+    p23[targetOffset] = snapshot.attributes.aP2[sourceOffset];
+    p23[targetOffset + 1] = snapshot.attributes.aP2[sourceOffset + 1];
+    p23[targetOffset + 2] = snapshot.attributes.aP3[sourceOffset];
+    p23[targetOffset + 3] = snapshot.attributes.aP3[sourceOffset + 1];
+  }
+  previousP01.needsUpdate = true;
+  previousP23.needsUpdate = true;
+  params.growthPlayback = false;
+  growthWasActive = false;
+  strokeMorphActive = true;
+  strokeMorphStartedAt = performance.now();
+  setStrokeMorphProgress(0);
+  updateGrowthControls(GROWTH_DURATION);
+  document.documentElement.dataset.strokeMorphState = 'morphing';
+  statusEl.textContent = '作品切换中 · 笔触正在变形';
+  publishFlowState();
+  strokeTargetsDirty = true;
+  compositeDirty = true;
+  requestFrame();
+  return true;
+}
+
+function updateStrokeMorph(time) {
+  if (!strokeMorphActive) return false;
+  const linear = THREE.MathUtils.clamp((time - strokeMorphStartedAt) / STROKE_MORPH_DURATION, 0, 1);
+  const eased = linear * linear * (3 - 2 * linear);
+  setStrokeMorphProgress(eased);
+  strokeTargetsDirty = true;
+  compositeDirty = true;
+  if (linear >= 1) {
+    strokeMorphActive = false;
+    document.documentElement.dataset.strokeMorphState = 'idle';
+    statusEl.textContent = '作品切换完成 · 笔触身份已稳定';
+    publishFlowState();
+  }
+  return strokeMorphActive;
 }
 
 function rebuildStrokeGeometry() {
@@ -2026,6 +2141,11 @@ function publishFlowState() {
     sourceMode: importedModelRoot ? 'model' : uploadedImage ? 'image' : 'scene',
     activeSceneId: activeBuiltInSceneId || null,
     sceneSwitchMs: Number(document.documentElement.dataset.sceneSwitchMs || 0),
+    sceneTransition: {
+      active: strokeMorphActive,
+      progress: Number(document.documentElement.dataset.strokeMorphProgress || 1),
+      autoTour: sceneTourEnabled,
+    },
     sourceSize: uploadedImage ? [uploadedImage.width, uploadedImage.height] : null,
     model: importedModelStats ? { ...importedModelStats } : null,
     modelAppearance: importedModelRoot ? {
@@ -2283,6 +2403,7 @@ function animate(time) {
     || (params.cameraDrift && !params.paused && time - lastAnalysisAt > ANALYSIS_INTERVAL);
   if (analysisDue) updateAnalysis(false);
   else if (strokeGeometryDirty) rebuildStrokeGeometry();
+  const morphActive = updateStrokeMorph(time);
   const strokesRendered = renderStrokeLayers();
   if (compositeDirty || strokesRendered || sceneRendered || params.cameraDrift || (params.movingLight && growthWasActive)) {
     renderComposite(elapsed);
@@ -2290,7 +2411,7 @@ function animate(time) {
   const growthActive = params.growthPlayback
     && !params.paused
     && currentGrowthTime() < GROWTH_DURATION;
-  if (growthActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame();
+  if (growthActive || morphActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame();
   else lastFrameAt = 0;
 }
 
@@ -2563,6 +2684,12 @@ function resetForSourceChange(options = {}) {
   sceneTargetDirty = true;
   strokeTargetsDirty = true;
   updateAnalysis(true);
+  if (beginStrokeMorph(options.strokeMorphSnapshot)) {
+    return;
+  }
+  setStrokeMorphProgress(1);
+  strokeMorphActive = false;
+  document.documentElement.dataset.strokeMorphState = 'idle';
   if (skipInitialGrowth) {
     skipInitialGrowth = false;
     params.growthPlayback = false;
@@ -2614,6 +2741,7 @@ function setNumericControl(key, value) {
 async function loadDefaultGeometry(geometryId) {
   const preset = DEFAULT_GEOMETRIES[geometryId];
   if (!preset) return;
+  if (sceneTourEnabled) setSceneTourEnabled(false);
   const requestToken = ++sceneLoadToken;
   statusEl.textContent = `正在生成${preset.label} · 准备 3D 预览`;
   let root = null;
@@ -2672,6 +2800,7 @@ async function loadUploadedImage(file, options = {}) {
   if (!file) return;
   const requestToken = options.requestToken ?? ++sceneLoadToken;
   const builtInScene = options.builtInScene || null;
+  if (!builtInScene && sceneTourEnabled) setSceneTourEnabled(false);
   if (!builtInScene && file.type && !file.type.startsWith('image/')) {
     statusEl.textContent = '请选择 JPG、PNG 或 WebP 图片';
     return;
@@ -2707,7 +2836,7 @@ async function loadUploadedImage(file, options = {}) {
     setSourceUi();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     if (requestToken !== sceneLoadToken) return;
-    resetForSourceChange();
+    resetForSourceChange({ strokeMorphSnapshot: options.strokeMorphSnapshot });
     if (builtInScene) {
       const sceneSwitchMs = performance.now() - (options.sceneSwitchStarted || performance.now());
       document.documentElement.dataset.activeSceneId = builtInScene.id;
@@ -2735,6 +2864,7 @@ function isGlbFile(file) {
 
 async function loadGlbModel(file) {
   if (!file) return;
+  if (sceneTourEnabled) setSceneTourEnabled(false);
   if (!isGlbFile(file)) {
     statusEl.textContent = '请选择单文件 GLB 模型';
     return;
@@ -2801,10 +2931,45 @@ function fetchBuiltInSceneBlob(scene) {
   return request;
 }
 
+function updateSceneTourButton() {
+  sceneTourToggleEl.disabled = builtInScenes.length < 2;
+  sceneTourToggleEl.setAttribute('aria-pressed', String(sceneTourEnabled));
+  sceneTourToggleEl.dataset.i18n = sceneTourEnabled ? 'stopTour' : 'startTour';
+  sceneTourToggleEl.textContent = t(sceneTourToggleEl.dataset.i18n);
+}
+
+function scheduleSceneTour(delay = SCENE_TOUR_DWELL) {
+  clearTimeout(sceneTourTimer);
+  sceneTourTimer = 0;
+  if (!sceneTourEnabled || builtInScenes.length < 2) return;
+  sceneTourTimer = window.setTimeout(() => {
+    sceneTourTimer = 0;
+    const currentIndex = Math.max(0, builtInScenes.findIndex((scene) => scene.id === activeBuiltInSceneId));
+    loadBuiltInScene(builtInScenes[(currentIndex + 1) % builtInScenes.length]);
+  }, delay);
+}
+
+function setSceneTourEnabled(value) {
+  sceneTourEnabled = Boolean(value) && builtInScenes.length > 1;
+  clearTimeout(sceneTourTimer);
+  sceneTourTimer = 0;
+  updateSceneTourButton();
+  document.documentElement.dataset.sceneTour = sceneTourEnabled ? 'playing' : 'idle';
+  statusEl.textContent = sceneTourEnabled
+    ? '自动巡展已开启 · 内置原作将以笔触变形衔接'
+    : '自动巡展已停止';
+  if (sceneTourEnabled) scheduleSceneTour(900);
+  publishFlowState();
+  requestFrame();
+}
+
 async function loadBuiltInScene(scene) {
   if (!scene || (activeBuiltInSceneId === scene.id && uploadedImage)) return;
   const sceneSwitchStarted = performance.now();
   const requestToken = ++sceneLoadToken;
+  const strokeMorphSnapshot = activeBuiltInSceneId && uploadedImage
+    ? captureStrokeMorphSnapshot()
+    : null;
   selectedBuiltInScene = scene;
   document.documentElement.dataset.sceneSwitchState = 'loading';
   scenePickerLabelEl.textContent = `${t('loadingWork')} · ${sceneDisplayTitle(scene)}`;
@@ -2819,6 +2984,7 @@ async function loadBuiltInScene(scene) {
       builtInScene: scene,
       requestToken,
       sceneSwitchStarted,
+      strokeMorphSnapshot,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -2826,6 +2992,7 @@ async function loadBuiltInScene(scene) {
     window.__vangoghFlowErrors.push(message);
   } finally {
     button?.classList.remove('is-loading');
+    if (requestToken === sceneLoadToken && sceneTourEnabled) scheduleSceneTour();
   }
 }
 
@@ -2865,6 +3032,7 @@ async function initializeSceneLibrary() {
     if (!Array.isArray(manifest) || manifest.length === 0) throw new Error('场景清单为空');
     builtInScenes = manifest;
     selectedBuiltInScene = builtInScenes[Math.floor(Math.random() * builtInScenes.length)];
+    updateSceneTourButton();
     renderSceneLibrary();
     await loadBuiltInScene(selectedBuiltInScene);
   } catch (error) {
@@ -3197,6 +3365,7 @@ sourceUploadEl.addEventListener('change', (event) => {
   if (isGlbFile(file)) loadGlbModel(file);
   else loadUploadedImage(file);
 });
+sceneTourToggleEl.addEventListener('click', () => setSceneTourEnabled(!sceneTourEnabled));
 defaultGeometryEls.forEach((button) => {
   button.addEventListener('click', () => loadDefaultGeometry(button.dataset.defaultGeometry));
 });

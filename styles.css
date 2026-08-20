@@ -633,6 +633,32 @@ html[data-language="en"] .language-toggle span:last-child {
 
 .scene-library[open] .scene-picker-current i { transform: rotate(225deg) translate(-1px, -1px); }
 
+.scene-tour-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.scene-tour-bar button {
+  min-height: 26px;
+  padding: 4px 10px;
+  border-color: rgba(52, 79, 145, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 253, 247, 0.72);
+  color: #36518f;
+  font-size: 10px;
+}
+
+.scene-tour-bar button:hover,
+.scene-tour-bar button[aria-pressed="true"] {
+  border-color: rgba(52, 79, 145, 0.58);
+  background: var(--ultramarine-soft);
+}
+
 .scene-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

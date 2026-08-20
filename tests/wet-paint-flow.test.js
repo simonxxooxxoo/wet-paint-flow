@@ -186,6 +186,23 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(source).not.toContain('sceneLibraryEl.open = false');
   });
 
+  it('morphs GPU strokes between built-in works and offers an opt-in auto tour', () => {
+    expect(html).toContain('id="scene-tour-toggle"');
+    expect(html).toContain('data-i18n="strokeMorph"');
+    expect(styles).toContain('.scene-tour-bar');
+    expect(source).toContain('const STROKE_MORPH_DURATION = 1800');
+    expect(source).toContain('const SCENE_TOUR_DWELL = 6200');
+    expect(source).toContain('attribute vec4 aPrevP01');
+    expect(source).toContain('uniform float uSceneMorph');
+    expect(source).toContain('mix(aPrevP01.xy, aP0, uSceneMorph)');
+    expect(source).toContain('function captureStrokeMorphSnapshot()');
+    expect(source).toContain('function beginStrokeMorph(snapshot)');
+    expect(source).toContain('const morphActive = updateStrokeMorph(time)');
+    expect(source).toContain('strokeMorphSnapshot: options.strokeMorphSnapshot');
+    expect(source).toContain("sceneTourToggleEl.addEventListener('click'");
+    expect(source).toContain('loadBuiltInScene(builtInScenes[(currentIndex + 1) % builtInScenes.length])');
+  });
+
   it('keeps built-in scenes light and prefetches only on user intent', () => {
     const fullSceneBytes = sceneManifest.reduce((total, scene) => {
       const path = new URL(`../public/${scene.src.replace('./', '')}`, import.meta.url);
@@ -439,7 +456,7 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(source).toContain('function requestFrame()');
     expect(source).toContain('animationFrameId = requestAnimationFrame(animate)');
     expect(source).toContain('animationFrameId = 0');
-    expect(source).toContain('if (growthActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame()');
+    expect(source).toContain('if (growthActive || morphActive || liveModelAdjustmentPending || (params.cameraDrift && !params.paused)) requestFrame()');
     expect(source.indexOf('if (!strokeTargetsDirty && (!growthActive || params.paused)) return false'))
       .toBeLessThan(source.indexOf("growthProgressEl.textContent = growthRatio >= 1"));
     expect(source).not.toContain('let fieldTexture');
