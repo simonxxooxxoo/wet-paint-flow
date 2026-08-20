@@ -4,8 +4,7 @@ This file records the source and reuse basis for every image shipped with Wet
 Paint Flow. A public-domain artwork and a digital photograph of that artwork
 are separate rights questions, so both are recorded below.
 
-Last reviewed: 2026-08-20. This record is project documentation, not legal
-advice.
+Last reviewed: 2026-08-20.
 
 ## Current built-in scene library
 
@@ -28,10 +27,9 @@ crop, recoloring, compositing, or generative alteration is applied.
 | `yellow-house` | *The Yellow House (The Street)* (1888) | Van Gogh Museum, s0032V1962 | [Wikimedia Commons file from Google Art Project](https://commons.wikimedia.org/wiki/File:Vincent_van_Gogh_-_The_yellow_house_(%27The_street%27).jpg) | Commons marks this faithful reproduction Public Domain / PD-Art; the project does not use the more restrictive image from the Van Gogh Museum website |
 | `starry-night` | *The Starry Night* (1889) | Museum of Modern Art, 472.1941 | [Wikimedia Commons file from Google Art Project](https://commons.wikimedia.org/wiki/File:Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg) | Commons marks this faithful reproduction Public Domain / PD-Art; the project does not use a MoMA website image |
 
-The scene IDs are stable application identifiers. Three titles now point to
-different versions of the same subject than the prior unverified files:
-`sunflowers`, `olive-trees-blue-sky`, and `wheat-field-cypresses` use explicit
-The Met Open Access versions.
+The scene IDs are stable application identifiers. `sunflowers`,
+`olive-trees-blue-sky`, and `wheat-field-cypresses` use the explicit The Met
+Open Access versions listed above.
 
 ## Rights-policy summary
 
@@ -74,15 +72,3 @@ not treated as evidence that its digital file may be redistributed.
 | --- | --- | --- |
 | `public/og.png` | Abstract social-preview artwork generated for this project on 2026-08-19 from the project title and product description | Cleared for project use |
 | `public/favicon.svg` | Original vector mark authored for this project | Cleared for project use |
-
-## Publication status
-
-The current tree's 11 built-in scene files now have recorded sources and reuse
-bases. The public repository was created from this verified current tree as a
-new root commit. Earlier private development history, including removed image
-assets whose sources or digital-reproduction rights were not verified, is not
-part of the public repository.
-
-This boundary is intentional: the code history exposed to the public contains
-only the files covered by this document and the project-authored assets listed
-above. The legacy development repository remains private.

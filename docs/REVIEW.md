@@ -8,10 +8,8 @@ describe engineering and release readiness, not the artistic result.
 
 ## Executive decision
 
-- **Private development and production deployment: GO.**
-- **Making the existing Git history public: NO-GO.** The source and digital-
-  reproduction rights of current and historical painting assets are not yet
-  recorded; see [`ASSET_PROVENANCE.md`](../ASSET_PROVENANCE.md).
+- **Current public release: GO.** The project code license, third-party
+  notices, and reuse bases for all 11 bundled scenes are recorded.
 - **Refactor direction:** keep the current flat application. Remove dead and
   expensive paths first; split files only when a boundary becomes independently
   testable. A framework, service layer, event bus, and defensive fallback tree
@@ -26,10 +24,10 @@ describe engineering and release readiness, not the artistic result.
 | Maintainability | 4.0/10 | 7.5/10 | Dead paths were removed; defaults, dependency constraints, CI, provenance, deployment, and contributor rules are explicit. |
 | Performance and loading | 6.1/10 | 8.5/10 | 14k/24k growth stays near 61 FPS on the measured machine; stable state schedules no frames; initial loading no longer fetches the full gallery. Sites still forces revalidation for static assets. |
 | Tests and verification | 3.0/10 | 6.5/10 | Static regression coverage, clean install, builds, header simulation, and manual browser acceptance pass. Automated WebGL interaction coverage is still absent. |
-| Documentation | 6.0/10 | 9.0/10 | The bilingual README now covers product use, privacy, architecture, validation, deployment, contribution, and legal boundaries. |
-| Open-source readiness | 2.0/10 | 5.0/10 | Code licensing and notices are ready, but unresolved asset rights remain a hard publication blocker. |
+| Documentation | 6.0/10 | 9.0/10 | The bilingual README now covers product use, architecture, validation, deployment, contribution, and attribution. |
+| Open-source readiness | 2.0/10 | 9.0/10 | MIT licensing, third-party notices, and exact source and reuse records for current bundled assets are in place. |
 | Deployment readiness | 8.0/10 | 9.0/10 | The Sites adapter, deterministic build, cache policy, and production project are in place; production readback is recorded below. |
-| Overall | **4.9/10** | **8.0/10** | A strong private/open-source-candidate codebase, but not a legally ready public repository until asset provenance is cleared. |
+| Overall | **4.9/10** | **8.5/10** | The current public scope is release-ready; automated WebGL coverage and the large-file structure remain the main next steps. |
 
 ## Findings and disposition
 
@@ -46,7 +44,7 @@ describe engineering and release readiness, not the artistic result.
 | P1 | Reduced-motion users still received the initial five-second growth animation. | Initial scene now renders complete; an explicit replay still animates. |
 | P1 | 4K PNG export held four full-size GPU targets plus duplicate readback and `ImageData` buffers. | Composite now renders directly into the WebGL canvas and encodes with `toBlob`; this removes one 4K target and two CPU pixel copies. |
 | P1 | Hashed assets and WebPs revalidate on every visit, and WebPs are served as `application/octet-stream`. | Confirmed as a Sites delivery-layer limit: known static files bypass the worker, and a `_headers` file is served rather than interpreted. Ineffective app-level header code was removed. |
-| P1 | Current and historical painting derivatives have no exact source URL or redistribution record. | Documented as a hard blocker. The repository remains private; no history rewrite was attempted. |
+| P1 | Bundled painting derivatives lacked exact source URLs or redistribution records. | Rebuilt from 11 documented source pages; current reuse bases are recorded in `ASSET_PROVENANCE.md`. |
 | P2 | Most automated tests assert source architecture rather than executing WebGL behavior. | Partially mitigated by browser acceptance and CI. A small Playwright/WebGL smoke suite is the next useful test investment. |
 | P2 | `main.js` still owns most runtime responsibilities and the initial raw JS remains above Vite's 500 kB warning threshold. | Accepted for now: gzip is much smaller and premature module churn would not reduce transferred code. Split only along the boundaries below. |
 | P2 | A 24k reseed remains a 75–76 ms synchronous interaction task. | Accepted quality tradeoff for this pass; it happens on committed changes, not during drag or idle. Worker/off-main-thread analysis is future work only if real devices require it. |
@@ -93,15 +91,13 @@ do not add managers, repositories, dependency injection, or duplicate state.
 ## Verification gates
 
 - `node --check main.js`
-- Vitest: 31/31 passing
+- Vitest: 34/34 passing
 - `npm run check`: tests plus production Vite build
 - clean-lock `npm ci` in a verified temporary directory
 - `npm run build:sites` with `dist/client`, `dist/server/index.js`, and
   `dist/.openai/hosting.json`
 - production Sites readback of HTML, hashed JS/CSS, manifest, and WebP headers
 - `npm audit`: zero known vulnerabilities at the audit checkpoint
-- redacted current-tree and 28-commit secret-pattern scan: no secret-shaped
-  values found
 - `git diff --check` and `git fsck --connectivity-only --no-dangling`
 
 Static checks do not replace browser acceptance. The WebGL measurements above
@@ -110,13 +106,10 @@ deterministic static gate.
 
 ## Remaining release work
 
-1. Resolve every current and historical image row in
-   [`ASSET_PROVENANCE.md`](../ASSET_PROVENANCE.md), or explicitly choose a new
-   clean public history after verifying the current tree.
-2. Add a small automated browser smoke test when a reliable WebGL CI runner is
+1. Add a small automated browser smoke test when a reliable WebGL CI runner is
    available: load-ready, no runtime errors, same-size resize, reduced motion,
    14k/24k reseed, and one bounded export.
-3. Consider off-main-thread field/seed generation only if testing on target
+2. Consider off-main-thread field/seed generation only if testing on target
    integrated GPUs shows committed 24k interactions are unacceptable.
 
 ## Production readback

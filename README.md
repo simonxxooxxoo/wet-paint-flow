@@ -21,12 +21,6 @@ Wet Paint Flow 是一个浏览器内运行的 Three.js 实时流场绘画实验�
 [第三方声明](./THIRD_PARTY_NOTICES.md) ·
 [验收记录](./docs/REVIEW.md)
 
-> **开源状态**
->
-> 当前 11 幅内置画作已记录美术馆或 Wikimedia Commons 来源与复用依据。公开
-> 仓库从仅包含当前已核验文件的干净根提交开始；早期私有开发历史及其中已删除、
-> 未核验的图片不会进入公开仓库。详见[资产溯源](./ASSET_PROVENANCE.md)。
-
 ### 核心能力
 
 - **图片与 GLB** — 导入 JPG、PNG、WebP、GIF 或单文件 GLB；也可使用内置
@@ -39,7 +33,7 @@ Wet Paint Flow 是一个浏览器内运行的 Three.js 实时流场绘画实验�
   和微表面高光合成。
 - **结果与导出** — 支持纯笔触、原图、融合与流场手稿视图，可导出最长边
   4096 px 的 PNG，并在浏览器支持时录制生长视频。
-- **中英界面** — 语言偏好只保存在当前浏览器设备。
+- **中英界面** — 可在中文与 English 界面之间切换。
 
 ### 运行方式
 
@@ -56,11 +50,7 @@ npm run dev -- --port 4186
 http://127.0.0.1:4186/
 ```
 
-### 交互与隐私
-
-上传的图片通过浏览器 object URL 解码，GLB 通过本地 `ArrayBuffer` 解析；项目
-没有上传接口、分析服务或遥测。内置场景会从本站读取，语言偏好使用
-`localStorage`。
+### 交互
 
 图片保持原始宽高比。旋转模型时先显示轻量 3D 预览，松手后只做一次方向场分析
 和笔触重建，避免拖动中重复 GPU 读回。
@@ -138,8 +128,6 @@ npm run build:sites
 证据。不要提交来源或授权不清的图像。
 
 普通问题使用 [GitHub Issues](https://github.com/simonxxooxxoo/wet-paint-flow/issues)。
-安全问题请不要公开粘贴密钥、私有素材或个人数据；先通过仓库所有者的私密联系
-渠道报告。
 
 ### 许可证与来源
 
@@ -166,14 +154,6 @@ wet-paint surface from height, moisture, bristle, and lighting data.
 [Third-party notices](./THIRD_PARTY_NOTICES.md) ·
 [Review](./docs/REVIEW.md)
 
-> **Open-source status**
->
-> The current 11 built-in painting files have recorded museum or Wikimedia
-> Commons sources and reuse bases. This public repository starts from a clean
-> root commit containing only the verified current tree; earlier private
-> development history and removed, unverified image files are excluded. See
-> [asset provenance](./ASSET_PROVENANCE.md).
-
 ### Highlights
 
 - **Images and GLB** — Import local JPG, PNG, WebP, GIF, or self-contained GLB
@@ -187,8 +167,7 @@ wet-paint surface from height, moisture, bristle, and lighting data.
 - **Output** — Switch among stroke, source, blend, and flow-sketch views;
   export a PNG up to 4096 px on the longest edge or a real-time growth
   recording when the browser supports it.
-- **Bilingual UI** — The language preference is stored only on the current
-  device.
+- **Bilingual UI** — Switch between Chinese and English.
 
 ### Quick Start
 
@@ -206,12 +185,7 @@ Open:
 http://127.0.0.1:4186/
 ```
 
-### Interaction and Privacy
-
-Imported images are decoded through browser object URLs, and GLB files are
-parsed from local `ArrayBuffer` data. The project has no upload endpoint,
-analytics service, or telemetry. Only built-in scenes are fetched from the
-site, and the language preference uses `localStorage`.
+### Interaction
 
 Images preserve their aspect ratio. Model orbiting uses a lightweight 3D
 preview and performs one direction-field analysis and stroke rebuild on
@@ -301,9 +275,7 @@ attach 14k/24k browser evidence for visual or performance changes. Do not add
 assets without verified provenance and redistribution terms.
 
 Use [GitHub Issues](https://github.com/simonxxooxxoo/wet-paint-flow/issues) for
-ordinary bugs. Report sensitive security issues privately to the repository
-owner rather than posting credentials, private media, or personal data in
-public.
+ordinary bugs.
 
 ### License and Attribution
 
