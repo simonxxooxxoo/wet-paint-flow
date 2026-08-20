@@ -1,0 +1,2 @@
+# Optional dependency for scripts/build-scene-library.py (Python 3.10+).
+Pillow>=12.3,<13

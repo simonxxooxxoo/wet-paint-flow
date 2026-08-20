@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Wet Paint Flow">
+  <rect width="64" height="64" rx="14" fill="#17377f"/>
+  <path d="M8 39C18 13 29 52 40 24c5-13 11-12 16-2" fill="none" stroke="#f2ca58" stroke-width="9" stroke-linecap="round"/>
+  <path d="M12 48c14-13 27 7 41-10" fill="none" stroke="#e9dfc8" stroke-width="5" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ede5d5" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta name="description" content="Turn images and GLB scenes into real-time flow-field paintings with layered Bézier strokes and wet impasto shading." />
+    <link rel="canonical" href="https://wet-paint-flow.simonxxoo.chatgpt.site/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Wet Paint Flow" />
+    <meta property="og:description" content="Real-time flow-field painting in the browser." />
+    <meta property="og:url" content="https://wet-paint-flow.simonxxoo.chatgpt.site/" />
+    <meta property="og:image" content="https://wet-paint-flow.simonxxoo.chatgpt.site/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wet Paint Flow" />
+    <meta name="twitter:description" content="Real-time flow-field painting in the browser." />
+    <meta name="twitter:image" content="https://wet-paint-flow.simonxxoo.chatgpt.site/og.png" />
+    <title>Wet Paint Flow · 实时油画笔触生成器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section class="stage" aria-label="梵高方向场实时笔触实验">
+        <div id="canvas-mount" title="滚轮缩放画布 · 双击恢复"></div>
+        <div id="model-light-control" class="model-light-control" hidden>
+          <label for="model-light-angle">
+            <span data-i18n="lightAngle">环境光角度</span>
+            <output id="model-light-angle-output">-52°</output>
+          </label>
+          <input id="model-light-angle" type="range" min="-180" max="180" step="1" value="-52" />
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="笔触生成属性页">
+        <header class="panel-head">
+          <div class="panel-title">
+            <span class="panel-kicker">Wet Paint Flow</span>
+          </div>
+          <button id="language-toggle" class="language-toggle" type="button" aria-label="Switch to English">
+            <span>中</span><span>EN</span>
+          </button>
+        </header>
+
+        <section id="growth-controls" class="panel-section growth-section">
+          <div class="growth-section-head">
+            <div>
+              <strong data-i18n="growthControl">生长控制</strong>
+              <span id="growth-progress">等待生成</span>
+            </div>
+            <button id="replay-growth-button" class="accent compact-action" type="button" data-i18n="restartGrowth">重新生成</button>
+          </div>
+          <div class="growth-scrubber">
+            <div class="growth-scrubber-head">
+              <span data-i18n="growthTimeline">生长时间轴</span>
+              <output id="growth-time-label" for="growth-timeline">00:00.0 / 00:05.0</output>
+            </div>
+            <div class="growth-scrubber-row">
+              <button id="pause-button" class="timeline-toggle" type="button" aria-pressed="false" data-i18n="pause">暂停</button>
+              <input
+                id="growth-timeline"
+                type="range"
+                min="0"
+                max="5"
+                step="0.01"
+                value="0"
+                aria-label="生长动画时间轴"
+                data-i18n-aria-label="growthTimelineAria"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section id="source-controls" class="panel-section source-control">
+          <div class="section-heading">
+            <div><strong data-i18n="source">素材</strong></div>
+            <output id="source-mode" class="visually-hidden">内置场景</output>
+          </div>
+          <input id="source-upload" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/*,.glb,model/gltf-binary,model/gltf+binary" />
+          <label id="upload-drop" class="upload-drop" for="source-upload">
+            <span class="upload-icon" aria-hidden="true">＋</span>
+            <span class="upload-copy">
+              <strong data-i18n="importSource">导入图片或 GLB</strong>
+              <small data-i18n="localProcessing">JPG / PNG / WebP / GLB · 本地处理</small>
+            </span>
+          </label>
+          <div class="default-geometry-picker" aria-label="默认几何体">
+            <div class="default-geometry-heading">
+              <strong data-i18n="defaultGeometry">默认几何体</strong>
+              <label class="model-analysis-toggle" for="live-model-analysis">
+                <span data-i18n="liveStrokeFollow">实时笔触跟随</span>
+                <input id="live-model-analysis" type="checkbox" />
+                <i aria-hidden="true"></i>
+              </label>
+            </div>
+            <div class="default-geometry-grid">
+              <button type="button" data-default-geometry="sphere" aria-pressed="false"><i aria-hidden="true">●</i><span data-i18n="sphere">球体</span></button>
+              <button type="button" data-default-geometry="cube" aria-pressed="false"><i aria-hidden="true">■</i><span data-i18n="cube">立方体</span></button>
+              <button type="button" data-default-geometry="torus" aria-pressed="false"><i aria-hidden="true">◎</i><span data-i18n="torus">圆环</span></button>
+              <button type="button" data-default-geometry="knot" aria-pressed="false"><i aria-hidden="true">∞</i><span data-i18n="knot">扭结</span></button>
+            </div>
+            <div class="model-color-row" aria-label="模型颜色">
+              <span data-i18n="modelColor">模型颜色</span>
+              <div class="model-color-palette">
+                <button type="button" data-model-color="#b9783e" aria-label="赭石" title="赭石"></button>
+                <button type="button" data-model-color="#526d9d" aria-label="群青" title="群青"></button>
+                <button type="button" data-model-color="#66856c" aria-label="鼠尾草绿" title="鼠尾草绿"></button>
+                <button type="button" data-model-color="#9f5d58" aria-label="陶土红" title="陶土红"></button>
+                <button type="button" data-model-color="#c8bda7" aria-label="石膏白" title="石膏白"></button>
+                <button type="button" data-model-color="#3e4148" aria-label="炭黑" title="炭黑"></button>
+                <label class="model-color-custom" for="model-color-custom" title="自定义颜色">
+                  <input id="model-color-custom" type="color" value="#526d9d" aria-label="自定义模型颜色" />
+                  <span aria-hidden="true">＋</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div id="model-source-controls" class="model-source-controls" hidden>
+            <div class="model-source-summary">
+              <strong id="model-source-name">模型</strong>
+              <small id="model-source-meta">—</small>
+            </div>
+            <div class="model-view-actions" aria-label="模型显示">
+              <button id="model-preview-button" type="button" aria-pressed="false" data-i18n="preview3d">3D 预览</button>
+              <button id="model-paint-button" type="button" aria-pressed="false" data-i18n="strokeResult">笔触结果</button>
+            </div>
+          </div>
+          <details id="scene-library" class="scene-library">
+            <summary>
+              <span class="scene-picker-copy">
+                <strong data-i18n="builtInWorks">内置原作</strong>
+                <small data-i18n="elevenWorks">11 幅</small>
+              </span>
+              <span class="scene-picker-current">
+                <b id="scene-picker-label">正在读取…</b>
+                <i aria-hidden="true"></i>
+              </span>
+            </summary>
+            <div id="scene-grid" class="scene-grid" role="list" aria-label="内置梵高场景">
+              <span class="scene-loading" data-i18n="loadingScenes">正在读取场景…</span>
+            </div>
+          </details>
+          <div class="source-actions">
+            <span id="source-meta" class="visually-hidden">正在使用内置场景</span>
+            <button id="restore-scene-button" class="text-button" type="button" disabled data-i18n="restoreScene">恢复内置场景</button>
+          </div>
+        </section>
+
+        <section id="display-controls" class="panel-section layer-section">
+          <div class="section-heading">
+            <div><strong data-i18n="display">画面显示</strong></div>
+          </div>
+          <div class="layer-tabs" role="radiogroup" aria-label="画面显示">
+            <label>
+              <input type="radio" name="layer-mode" value="5" checked />
+              <span class="layer-choice brush-choice">
+                <i aria-hidden="true"></i>
+                <strong data-i18n="brushOnly">纯笔触</strong>
+                <small data-i18n="beigeCanvas">米色画布</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="layer-mode" value="3" />
+              <span class="layer-choice original-choice">
+                <i aria-hidden="true"></i>
+                <strong id="source-preview-label" data-i18n="original">原图</strong>
+                <small id="source-preview-hint" data-i18n="noStrokes">不加笔触</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="layer-mode" value="0" />
+              <span class="layer-choice blend-choice">
+                <i aria-hidden="true"></i>
+                <strong data-i18n="brushAndOriginal">笔触＋原图</strong>
+                <small data-i18n="blendedView">融合显示</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="layer-mode" value="1" />
+              <span class="layer-choice flow-choice">
+                <i aria-hidden="true"></i>
+                <strong data-i18n="flowSketch">流场手稿</strong>
+                <small data-i18n="pencilFlow">铅笔方向线</small>
+              </span>
+            </label>
+          </div>
+          <fieldset class="brush-layer-switches">
+            <legend data-i18n="brushLayers">笔刷图层</legend>
+            <div class="brush-layer-switch-grid">
+              <label>
+                <input type="checkbox" data-brush-layer="0" checked />
+                <span class="brush-layer-toggle coarse-layer">
+                  <i aria-hidden="true"></i>
+                  <b data-i18n="coarse">粗层</b>
+                  <small data-i18n="structure">结构</small>
+                </span>
+              </label>
+              <label>
+                <input type="checkbox" data-brush-layer="1" checked />
+                <span class="brush-layer-toggle medium-layer">
+                  <i aria-hidden="true"></i>
+                  <b data-i18n="medium">中层</b>
+                  <small data-i18n="shaping">塑形</small>
+                </span>
+              </label>
+              <label>
+                <input type="checkbox" data-brush-layer="2" checked />
+                <span class="brush-layer-toggle fine-layer">
+                  <i aria-hidden="true"></i>
+                  <b data-i18n="fine">细层</b>
+                  <small data-i18n="texture">纹理</small>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        <section id="stroke-controls" class="panel-section effect-section">
+          <div class="section-heading">
+            <div><strong data-i18n="strokeEffects">笔触效果</strong></div>
+            <output id="stroke-count" class="visually-hidden">—</output>
+          </div>
+          <label class="quality-row quality-row-primary" for="quality-mode">
+            <span data-i18n="previewQuality">预览清晰度</span>
+            <select id="quality-mode">
+              <option value="balanced" data-i18n="qualityBalanced">流畅</option>
+              <option value="high" selected data-i18n="qualityHigh">高清</option>
+              <option value="ultra" data-i18n="qualityUltra">极致</option>
+            </select>
+          </label>
+          <label class="slider-row">
+            <span data-i18n="strokeSize">笔触大小</span><output data-output="strokeSize">1.00</output>
+            <input data-param="strokeSize" type="range" min="0.35" max="3.2" step="0.01" value="1" />
+          </label>
+          <label class="slider-row">
+            <span data-i18n="strokeLength">笔触长度</span><output data-output="length">1.48</output>
+            <input data-param="length" type="range" min="0.55" max="6" step="0.01" value="1.48" />
+          </label>
+          <label class="slider-row">
+            <span data-i18n="strokeCount">笔触数量</span><output data-output="strokeCountK">14,000</output>
+            <input data-param="strokeCountK" type="range" min="3" max="24" step="1" value="14" />
+          </label>
+          <label class="slider-row">
+            <span data-i18n="paintThickness">颜料厚度</span><output data-output="impasto">0.04</output>
+            <input data-param="impasto" type="range" min="0" max="1.5" step="0.01" value="0.04" />
+          </label>
+          <label class="slider-row">
+            <span data-i18n="paintDryness">颜料干燥度</span><output data-output="dryness">0.69</output>
+            <input data-param="dryness" type="range" min="0" max="1" step="0.01" value="0.69" />
+          </label>
+          <label class="slider-row">
+            <span data-i18n="paintViscosity">颜料黏度</span><output data-output="viscosity">0.58</output>
+            <input data-param="viscosity" type="range" min="0" max="1" step="0.01" value="0.58" />
+          </label>
+        </section>
+
+        <section id="output-controls" class="panel-section create-section">
+          <div class="section-heading">
+            <div><strong data-i18n="generateExport">生成与导出</strong></div>
+            <span class="fps-badge visually-hidden"><b id="fps">—</b></span>
+          </div>
+          <div class="actions">
+            <div class="export-actions">
+              <div class="export-action">
+                <button id="export-button" class="export-button export-action-button" type="button" data-i18n="exportPng">导出 4K PNG</button>
+              </div>
+              <div class="export-action">
+                <button id="video-export-button" class="export-button export-action-button" type="button" data-i18n="exportVideo">导出生长视频</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="signature-credit" aria-label="Creators">
+          <div class="signature-creators">
+            <a href="https://x.com/ring_hyacinth" target="_blank" rel="noopener noreferrer">Hyacinth</a>
+            <span aria-hidden="true">&amp;</span>
+            <a href="https://x.com/simonxxoo" target="_blank" rel="noopener noreferrer">Simon</a>
+          </div>
+          <a class="repository-link" href="https://github.com/simonxxooxxoo/wet-paint-flow" target="_blank" rel="noopener noreferrer">github.com/simonxxooxxoo/wet-paint-flow</a>
+        </footer>
+
+        <div class="runtime-probes" aria-hidden="true">
+          <span id="runtime-status">正在准备画布…</span>
+          <span id="gbuffer-size">—</span>
+          <span id="seed-churn">0.0%</span>
+          <span id="field-time">—</span>
+          <span id="renderer-name">WebGL2</span>
+          <span id="flow-sum">1.00</span>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      window.__vangoghFlowErrors = [];
+      const reportFlowError = (message) => {
+        window.__vangoghFlowErrors.push(String(message));
+        const status = document.getElementById('runtime-status');
+        if (status) status.textContent = `ERROR · ${message}`;
+      };
+      window.addEventListener('error', (event) => reportFlowError(event.message || event.error));
+      window.addEventListener('unhandledrejection', (event) => reportFlowError(event.reason));
+    </script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
