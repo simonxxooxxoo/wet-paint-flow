@@ -107,6 +107,8 @@ describe('standalone Wet Paint Flow experiment', () => {
     expect(source).toContain("modelColorCustomEl.addEventListener('input'");
     expect(source).toContain('{ custom: true }');
     expect(source).toContain('function setModelLightAngle(value');
+    expect(source).toContain('new THREE.DirectionalLight(0xffffff, 2.8)');
+    expect(source).not.toContain('new THREE.DirectionalLight(0xffd88a, 2.8)');
     expect(source).toContain('sunLight.position.set(Math.sin(radians) * 7.5, 8.5, Math.cos(radians) * 7.5)');
     expect(source).toContain('modelLightControlEl.hidden = !modelMode');
     expect(source).toContain("modelLightAngleEl.addEventListener('input'");

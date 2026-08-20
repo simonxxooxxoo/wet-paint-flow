@@ -513,7 +513,7 @@ const DEFAULT_GEOMETRIES = Object.freeze({
 
 const hemi = new THREE.HemisphereLight(0xabc5e8, 0x6c431f, 2.2);
 scene.add(hemi);
-const sunLight = new THREE.DirectionalLight(0xffd88a, 2.8);
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.8);
 sunLight.position.set(-5, 9, 4);
 scene.add(sunLight);
 
