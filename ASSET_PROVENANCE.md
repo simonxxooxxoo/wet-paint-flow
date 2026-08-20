@@ -72,3 +72,6 @@ not treated as evidence that its digital file may be redistributed.
 | --- | --- | --- |
 | `public/og.png` | Abstract social-preview artwork generated for this project on 2026-08-19 from the project title and product description | Cleared for project use |
 | `public/favicon.svg` | Original vector mark authored for this project | Cleared for project use |
+| `docs/examples/olive-grove-growth.*` | Project demo recording supplied by the repository owner on 2026-08-20; the MP4 is a compressed transcode and the WebP is its poster frame | Provided for publication with this project |
+| `docs/examples/glb-sculpture-study.*` | Project demo recording supplied by the repository owner on 2026-08-20; the MP4 is a compressed transcode and the WebP is its poster frame | Provided for publication with this project |
+| `docs/examples/starry-night-growth.*` | Project demo recording supplied by the repository owner on 2026-08-20; the MP4 is a compressed transcode and the WebP is its poster frame | Provided for publication with this project |

@@ -1,7 +1,9 @@
 # Third-Party Notices
 
-Wet Paint Flow is distributed under its own MIT license. The following works
-are dependencies or documented technical references.
+Wet Paint Flow is distributed under its own MIT license. This file preserves
+license notices for the runtime dependency and documented code/material
+inspiration. The project-visible technical acknowledgements and implementation
+boundaries are listed directly in the [README](./README.md#credits-and-technical-references).
 
 ## three.js
 
@@ -18,10 +20,9 @@ are dependencies or documented technical references.
 - Use here: conceptual inspiration for separating paint color, thickness,
   bristle structure, and surface lighting
 
-The current project describes `dli/paint` as material-model inspiration rather
-than claiming that its WebGL 1 fluid solver is embedded here. If any copied or
-adapted portion of that project is retained now or in the future, the following
-MIT notice applies to that portion.
+The current project uses `dli/paint` as material-model inspiration; its WebGL 1
+fluid solver is not embedded here. The MIT notice is retained below alongside
+the notice for three.js.
 
 ## MIT permission notice for the works above
 
